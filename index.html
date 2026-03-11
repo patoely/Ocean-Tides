@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WaveFlow Tickets</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="manifest" href="data:application/manifest+json,{
+        'name': 'WaveFlow Tickets',
+        'short_name': 'Tickets',
+        'start_url': '.',
+        'display': 'standalone',
+        'background_color': '#ffffff',
+        'theme_color': '#0d6efd'
+    }">
+    <meta name="theme-color" content="#0d6efd">
+</head>
+<body class="bg-light" onload="loadTickets()">
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-md-8 mx-auto">
+                <h1 class="text-center mb-4">🌊 WaveFlow Tickets</h1>
+                <p class="text-muted text-center mb-4">Dein browserbasiertes Ticketsystem – Daten bleiben lokal.</p>
+                
+                <form id="ticketForm" class="card p-4 mb-4 shadow-sm">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <input type="text" class="form-control mb-3" id="title" placeholder="Ticket-Titel" required>
+                        </div>
+                        <div class="col-md-4">
+                            <select class="form-select mb-3" id="priority">
+                                <option value="low">Niedrig</option>
+                                <option value="medium" selected>Mittel</option>
+                                <option value="high">Hoch</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <textarea class="form-control" id="description" rows="3" placeholder="Beschreibung..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Neues Ticket 🎫</button>
+                </form>
+
+                <div id="ticketList" class="card shadow-sm">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <strong>Tickets (<span id="ticketCount">0</span>)</strong>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="clearAllTickets()" id="clearBtn" style="display:none;">Alle löschen</button>
+                    </div>
+                    <ul class="list-group list-group-flush" style="max-height: 500px; overflow-y: auto;"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tickets = JSON.parse(localStorage.getItem('waveflow-tickets')) || [];
+
+        function saveTickets() {
+            localStorage.setItem('waveflow-tickets', JSON.stringify(tickets));
+            updateTicketCount();
+        }
+
+        function loadTickets() {
+            renderTickets();
+            updateTicketCount();
+        }
+
+        function updateTicketCount() {
+            document.getElementById('ticketCount').textContent = tickets.length;
+            document.getElementById('clearBtn').style.display = tickets.length > 0 ? 'block' : 'none';
+        }
+
+        function renderTickets() {
+            const list = document.querySelector('#ticketList ul');
+            list.innerHTML = '';
+            if (tickets.length === 0) {
+                list.innerHTML = '<li class="list-group-item text-center text-muted py-5">Noch keine Tickets. Erstelle das erste! 🎉</li>';
+                return;
+            }
+            tickets.forEach((ticket, index) => {
+                const li = document.createElement('li');
+                li.className = `list-group-item d-flex justify-content-between align-items-start px-4 py-3 ${ticket.status === 'closed' ? 'bg-light' : ''}`;
+                const badgeClass = ticket.priority === 'high' ? 'bg-danger' : ticket.priority === 'medium' ? 'bg-warning' : 'bg-success';
+                li.innerHTML = `
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">${ticket.title}</h6>
+                        <p class="mb-2 small text-muted">${ticket.description}</p>
+                        <div>
+                            <span class="badge ${badgeClass} me-2">${ticket.priority.toUpperCase()}</span>
+                            <span class="badge bg-secondary">${ticket.status === 'open' ? 'Offen' : 'Erledigt'}</span>
+                            <br><small class="text-black-50">${new Date(ticket.id).toLocaleDateString('de-DE')}</small>
+                        </div>
+                    </div>
+                    <div class="ms-2">
+                        <button class="btn btn-sm btn-outline-success me-1" onclick="toggleStatus(${index})">
+                            ${ticket.status === 'open' ? '✓ Erledigt' : '⏳ Öffnen'}
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteTicket(${index})">🗑️</button>
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function toggleStatus(index) {
+            tickets[index].status = tickets[index].status === 'open' ? 'closed' : 'open';
+            saveTickets();
+            renderTickets();
+        }
+
+        function deleteTicket(index) {
+            if (confirm('Ticket wirklich löschen?')) {
+                tickets.splice(index, 1);
+                saveTickets();
+                renderTickets();
+            }
+        }
+
+        function clearAllTickets() {
+            if (confirm('Alle Tickets löschen?')) {
+                tickets = [];
+                saveTickets();
+                renderTickets();
+            }
+        }
+
+        document.getElementById('ticketForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const ticket = {
+                id: Date.now(),
+                title: document.getElementById('title').value.trim(),
+                description: document.getElementById('description').value.trim(),
+                priority: document.getElementById('priority').value,
+                status: 'open'
+            };
+            if (ticket.title && ticket.description) {
+                tickets.unshift(ticket);
+                saveTickets();
+                renderTickets();
+                e.target.reset();
+            }
+        });
+    </script>
+</body>
+</html>
