@@ -45,13 +45,11 @@ function render() {
   attachHandlers(user);
 }
 
+// Logo jetzt innerhalb des zentrierten Ticket-Bereichs
 function renderHeader(user) {
   return `
-    <div class="d-flex justify-content-between align-items-start mb-3">
-      <div class="flex-grow-1 ot-center">
-        <img src="images/logo.png" alt="Ocean Tides Logo" class="ot-logo mb-2">
-      </div>
-      <div class="ms-3">
+    <div class="d-flex justify-content-end mb-2">
+      <div>
         ${user ? `
           <div class="text-end">
             <div class="small mb-2">${user.email}</div>
@@ -66,6 +64,7 @@ function renderHeader(user) {
         `}
       </div>
     </div>
+    ${renderLoginBox()}
   `;
 }
 
@@ -99,7 +98,8 @@ function renderTicketCreateForm() {
   return `
     <div class="row justify-content-center">
       <div class="col-md-8 col-lg-6">
-        <div class="ot-center mb-2">
+        <div class="ot-center mb-3">
+          <img src="images/logo.png" alt="Ocean Tides Logo" class="ot-logo mb-2">
           <h5>Ticket erstellen</h5>
           <p class="text-muted small mb-3">
             Name und E-Mail angeben, Empfänger und Dringlichkeit wählen – das Ticket wird direkt angelegt.
@@ -178,7 +178,6 @@ function renderMyTickets(user) {
 function renderMain(user) {
   return `
     ${renderHeader(user)}
-    ${renderLoginBox()}
     ${renderTicketCreateForm()}
     <div class="row mt-3">
       <div class="col-md-10 col-lg-8 mx-auto">
@@ -190,7 +189,8 @@ function renderMain(user) {
 
 function attachHandlers(user) {
   if (user) {
-    document.getElementById('logoutBtn').onclick = () => { setCurrentUser(null); render(); };
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) logoutBtn.onclick = () => { setCurrentUser(null); render(); };
   }
   const loginForm = document.getElementById('loginForm');
   if (loginForm) {
