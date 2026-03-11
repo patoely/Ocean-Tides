@@ -45,7 +45,7 @@ function render() {
   attachHandlers(user);
 }
 
-// Logo jetzt innerhalb des zentrierten Ticket-Bereichs
+// Kopfbereich: nur Login/Logout rechts
 function renderHeader(user) {
   return `
     <div class="d-flex justify-content-end mb-2">
@@ -93,6 +93,7 @@ function renderLoginBox() {
   `;
 }
 
+// Ticket-Erstellen nur, wenn NICHT eingeloggt
 function renderTicketCreateForm() {
   const options = USERS.map(u => `<option value="${u.email}">${u.name} (${u.email})</option>`).join('');
   return `
@@ -144,6 +145,7 @@ function renderTicketCreateForm() {
   `;
 }
 
+// Meine Tickets + Detail nur, wenn eingeloggt
 function renderMyTickets(user) {
   if (!user) {
     return `
@@ -152,6 +154,7 @@ function renderMyTickets(user) {
     `;
   }
   const tickets = getTickets().filter(t => t.toEmail === user.email);
+  tickets.sort((a,b) => b.id - a.id); // neueste oben
   const items = tickets.length ? tickets.map(t => {
     const prioLabel = t.priority === 'high' ? 'Hoch' : t.priority === 'medium' ? 'Mittel' : 'Niedrig';
     return `
@@ -178,12 +181,14 @@ function renderMyTickets(user) {
 function renderMain(user) {
   return `
     ${renderHeader(user)}
-    ${renderTicketCreateForm()}
-    <div class="row mt-3">
-      <div class="col-md-10 col-lg-8 mx-auto">
-        ${renderMyTickets(user)}
+    ${user ? '' : renderTicketCreateForm()}
+    ${user ? `
+      <div class="row mt-3">
+        <div class="col-md-10 col-lg-8 mx-auto">
+          ${renderMyTickets(user)}
+        </div>
       </div>
-    </div>
+    ` : ''}
   `;
 }
 
@@ -205,32 +210,35 @@ function attachHandlers(user) {
     });
   }
 
-  document.getElementById('createForm').addEventListener('submit', e => {
-    e.preventDefault();
-    const fromName  = document.getElementById('cName').value.trim();
-    const fromEmail = document.getElementById('cEmail').value.trim();
-    const toEmail   = document.getElementById('cTo').value;
-    const priority  = document.getElementById('cPriority').value;
-    const title     = document.getElementById('cTitle').value.trim();
-    const desc      = document.getElementById('cDesc').value.trim();
-    if (!fromName || !fromEmail || !toEmail || !title || !desc) return;
-    const tickets = getTickets();
-    tickets.push({
-      id: Date.now(),
-      fromName,
-      fromEmail,
-      toEmail,
-      priority,
-      title,
-      description: desc,
-      status: 'open',
-      dueDate: null,
-      messages: []
+  const createForm = document.getElementById('createForm');
+  if (createForm) {
+    createForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const fromName  = document.getElementById('cName').value.trim();
+      const fromEmail = document.getElementById('cEmail').value.trim();
+      const toEmail   = document.getElementById('cTo').value;
+      const priority  = document.getElementById('cPriority').value;
+      const title     = document.getElementById('cTitle').value.trim();
+      const desc      = document.getElementById('cDesc').value.trim();
+      if (!fromName || !fromEmail || !toEmail || !title || !desc) return;
+      const tickets = getTickets();
+      tickets.push({
+        id: Date.now(),
+        fromName,
+        fromEmail,
+        toEmail,
+        priority,
+        title,
+        description: desc,
+        status: 'open',
+        dueDate: null,
+        messages: []
+      });
+      saveTickets(tickets);
+      alert('Ticket wurde erstellt.');
+      e.target.reset();
     });
-    saveTickets(tickets);
-    alert('Ticket wurde erstellt.');
-    e.target.reset();
-  });
+  }
 
   const myTicketsList = document.getElementById('myTickets');
   if (user && myTicketsList) {
@@ -303,7 +311,7 @@ function openTicketDetail(id, user) {
     t.dueDate = due;
     saveTickets(tickets);
     const mailto = buildDueMail(t);
-    window.location.href = mailto;
+    window.location.assign(mailto);
   };
 
   document.getElementById('toggleStatus').onclick = () => {
@@ -319,7 +327,7 @@ function openTicketDetail(id, user) {
     saveTickets(tickets);
     const other = user.email === t.toEmail ? t.fromEmail : t.toEmail;
     const mailto = buildMessageMail(t, other, text);
-    window.location.href = mailto;
+    window.location.assign(mailto);
     openTicketDetail(id, user);
   };
 }
