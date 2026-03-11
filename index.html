@@ -22,6 +22,7 @@ const USERS = [
 
 const LS_TICKETS_KEY = 'ocean-tides-tickets';
 const LS_USER_KEY    = 'ocean-tides-current-user';
+const MAIL_ENDPOINT  = 'https://mailer.digidashdesign.de/ocean-tides-mail.php'; // dein PHP-Mailer
 
 function getTickets() {
   return JSON.parse(localStorage.getItem(LS_TICKETS_KEY)) || [];
@@ -38,6 +39,23 @@ function setCurrentUser(email) {
   else localStorage.removeItem(LS_USER_KEY);
 }
 
+// generische Mail-Funktion
+async function sendMail({ to, subject, message, replyTo }) {
+  try {
+    const res = await fetch(MAIL_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, subject, message, replyTo })
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || !data.ok) {
+      console.warn('Mail send failed', res.status, data);
+    }
+  } catch (err) {
+    console.warn('Mail request error', err);
+  }
+}
+
 function render() {
   const app = document.getElementById('app');
   const user = getCurrentUser();
@@ -45,7 +63,7 @@ function render() {
   attachHandlers(user);
 }
 
-// Kopfbereich: nur Login/Logout rechts
+// Kopfbereich
 function renderHeader(user) {
   return `
     <div class="d-flex justify-content-end mb-2">
@@ -93,7 +111,7 @@ function renderLoginBox() {
   `;
 }
 
-// Ticket-Erstellen nur, wenn NICHT eingeloggt
+// Ticket-Erstellen nur für nicht eingeloggte
 function renderTicketCreateForm() {
   const options = USERS.map(u => `<option value="${u.email}">${u.name} (${u.email})</option>`).join('');
   return `
@@ -145,7 +163,7 @@ function renderTicketCreateForm() {
   `;
 }
 
-// Meine Tickets + Detail nur, wenn eingeloggt
+// Übersicht nur für eingeloggte
 function renderMyTickets(user) {
   if (!user) {
     return `
@@ -154,7 +172,7 @@ function renderMyTickets(user) {
     `;
   }
   const tickets = getTickets().filter(t => t.toEmail === user.email);
-  tickets.sort((a,b) => b.id - a.id); // neueste oben
+  tickets.sort((a,b) => b.id - a.id);
   const items = tickets.length ? tickets.map(t => {
     const prioLabel = t.priority === 'high' ? 'Hoch' : t.priority === 'medium' ? 'Mittel' : 'Niedrig';
     return `
@@ -212,7 +230,7 @@ function attachHandlers(user) {
 
   const createForm = document.getElementById('createForm');
   if (createForm) {
-    createForm.addEventListener('submit', e => {
+    createForm.addEventListener('submit', async e => {
       e.preventDefault();
       const fromName  = document.getElementById('cName').value.trim();
       const fromEmail = document.getElementById('cEmail').value.trim();
@@ -222,8 +240,9 @@ function attachHandlers(user) {
       const desc      = document.getElementById('cDesc').value.trim();
       if (!fromName || !fromEmail || !toEmail || !title || !desc) return;
       const tickets = getTickets();
-      tickets.push({
-        id: Date.now(),
+      const id = Date.now();
+      const ticket = {
+        id,
         fromName,
         fromEmail,
         toEmail,
@@ -233,9 +252,26 @@ function attachHandlers(user) {
         status: 'open',
         dueDate: null,
         messages: []
-      });
+      };
+      tickets.push(ticket);
       saveTickets(tickets);
       alert('Ticket wurde erstellt.');
+
+      // Mail an Empfänger
+      const prioLabel = priority === 'high' ? 'Hoch' : priority === 'medium' ? 'Mittel' : 'Niedrig';
+      const msg =
+        `Neues Ticket in Ocean Tides\n\n` +
+        `Titel: ${title}\n` +
+        `Von: ${fromName} <${fromEmail}>\n` +
+        `Dringlichkeit: ${prioLabel}\n\n` +
+        `${desc}\n`;
+      sendMail({
+        to: toEmail,
+        subject: `Neues Ticket: ${title}`,
+        message: msg,
+        replyTo: fromEmail
+      });
+
       e.target.reset();
     });
   }
@@ -306,12 +342,22 @@ function openTicketDetail(id, user) {
     saveTickets(tickets);
   };
 
-  document.getElementById('saveDue').onclick = () => {
+  document.getElementById('saveDue').onclick = async () => {
     const due = document.getElementById('detailDue').value || null;
     t.dueDate = due;
     saveTickets(tickets);
-    const mailto = buildDueMail(t);
-    window.location.assign(mailto);
+
+    // Mail an Ticketersteller
+    const msg =
+      `Update zu deinem Ticket "${t.title}"\n\n` +
+      `Voraussichtliches Fertigstellungsdatum: ${t.dueDate || 'kein Datum'}\n\n` +
+      `Viele Grüße\nOcean Tides`;
+    await sendMail({
+      to: t.fromEmail,
+      subject: `Ticket-Update: ${t.title}`,
+      message: msg,
+      replyTo: user.email
+    });
   };
 
   document.getElementById('toggleStatus').onclick = () => {
@@ -320,37 +366,27 @@ function openTicketDetail(id, user) {
     render();
   };
 
-  document.getElementById('sendMsg').onclick = () => {
+  document.getElementById('sendMsg').onclick = async () => {
     const text = document.getElementById('msgText').value.trim();
     if (!text) return;
     t.messages.push({ from: user.email, text, timestamp: Date.now() });
     saveTickets(tickets);
     const other = user.email === t.toEmail ? t.fromEmail : t.toEmail;
-    const mailto = buildMessageMail(t, other, text);
-    window.location.assign(mailto);
+
+    const msg =
+      `Neue Nachricht zu Ticket "${t.title}"\n\n` +
+      `${user.email} schreibt:\n\n` +
+      `${text}\n\n` +
+      `Bitte im Ocean Tides Ticket antworten.`;
+    await sendMail({
+      to: other,
+      subject: `Neue Nachricht zu Ticket: ${t.title}`,
+      message: msg,
+      replyTo: user.email
+    });
+
     openTicketDetail(id, user);
   };
-}
-
-function buildDueMail(ticket) {
-  const subject = encodeURIComponent(`Ticket-Update: ${ticket.title}`);
-  const body = encodeURIComponent(
-    `Hallo ${ticket.fromName},\n\n` +
-    `für dein Ticket "${ticket.title}" wurde ein voraussichtliches Fertigstellungsdatum gesetzt: ${ticket.dueDate || 'kein Datum'}.\n\n` +
-    `Viele Grüße\nOcean Tides`
-  );
-  return `mailto:${ticket.fromEmail}?subject=${subject}&body=${body}`;
-}
-
-function buildMessageMail(ticket, to, text) {
-  const subject = encodeURIComponent(`Neue Nachricht zu Ticket: ${ticket.title}`);
-  const body = encodeURIComponent(
-    `Hallo,\n\nes gibt eine neue Nachricht zu deinem Ticket "${ticket.title}":\n\n` +
-    `"${text}"\n\n` +
-    `Antwort im Ticket: https://DEINUSERNAME.github.io/OCEAN-TIDES/\n\n` +
-    `Ocean Tides`
-  );
-  return `mailto:${to}?subject=${subject}&body=${body}`;
 }
 
 render();
