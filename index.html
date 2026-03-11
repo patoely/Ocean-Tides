@@ -50,7 +50,6 @@ function renderHeader(user) {
     <div class="d-flex justify-content-between align-items-start mb-3">
       <div class="flex-grow-1 ot-center">
         <img src="images/logo.png" alt="Ocean Tides Logo" class="ot-logo mb-2">
-        <p class="text-muted mb-0">Erstelle Tickets ohne Login – Mitarbeiter bearbeiten sie im geschützten Bereich.</p>
       </div>
       <div class="ms-3">
         ${user ? `
@@ -98,38 +97,50 @@ function renderLoginBox() {
 function renderTicketCreateForm() {
   const options = USERS.map(u => `<option value="${u.email}">${u.name} (${u.email})</option>`).join('');
   return `
-    <div class="ot-center mb-2">
-      <h5>Ticket erstellen</h5>
-      <p class="text-muted small mb-3">
-        Name und E-Mail angeben, Empfänger auswählen – das Ticket wird direkt angelegt.
-      </p>
+    <div class="row justify-content-center">
+      <div class="col-md-8 col-lg-6">
+        <div class="ot-center mb-2">
+          <h5>Ticket erstellen</h5>
+          <p class="text-muted small mb-3">
+            Name und E-Mail angeben, Empfänger und Dringlichkeit wählen – das Ticket wird direkt angelegt.
+          </p>
+        </div>
+        <form id="createForm" class="card p-3 shadow-sm mb-4">
+          <div class="mb-2">
+            <label class="form-label">Dein Name</label>
+            <input id="cName" class="form-control" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Deine E-Mail</label>
+            <input id="cEmail" type="email" class="form-control" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Empfänger</label>
+            <select id="cTo" class="form-select" required>
+              <option value="">Bitte wählen</option>
+              ${options}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Dringlichkeit</label>
+            <select id="cPriority" class="form-select" required>
+              <option value="low">Niedrig</option>
+              <option value="medium" selected>Mittel</option>
+              <option value="high">Hoch</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Titel</label>
+            <input id="cTitle" class="form-control" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Beschreibung</label>
+            <textarea id="cDesc" class="form-control" rows="4" required></textarea>
+          </div>
+          <button class="btn btn-primary w-100" type="submit">Ticket senden</button>
+        </form>
+      </div>
     </div>
-    <form id="createForm" class="card p-3 shadow-sm mb-4">
-      <div class="mb-2">
-        <label class="form-label">Dein Name</label>
-        <input id="cName" class="form-control" required>
-      </div>
-      <div class="mb-2">
-        <label class="form-label">Deine E-Mail</label>
-        <input id="cEmail" type="email" class="form-control" required>
-      </div>
-      <div class="mb-2">
-        <label class="form-label">Empfänger</label>
-        <select id="cTo" class="form-select" required>
-          <option value="">Bitte wählen</option>
-          ${options}
-        </select>
-      </div>
-      <div class="mb-2">
-        <label class="form-label">Titel</label>
-        <input id="cTitle" class="form-control" required>
-      </div>
-      <div class="mb-2">
-        <label class="form-label">Beschreibung</label>
-        <textarea id="cDesc" class="form-control" rows="4" required></textarea>
-      </div>
-      <button class="btn btn-primary w-100" type="submit">Ticket senden</button>
-    </form>
   `;
 }
 
@@ -141,18 +152,20 @@ function renderMyTickets(user) {
     `;
   }
   const tickets = getTickets().filter(t => t.toEmail === user.email);
-  const items = tickets.length ? tickets.map(t => `
+  const items = tickets.length ? tickets.map(t => {
+    const prioLabel = t.priority === 'high' ? 'Hoch' : t.priority === 'medium' ? 'Mittel' : 'Niedrig';
+    return `
     <li class="list-group-item">
       <div class="d-flex justify-content-between align-items-start">
         <div>
           <strong>${t.title}</strong><br>
           <small>Von: ${t.fromName} &lt;${t.fromEmail}&gt;</small><br>
-          <small>Status: ${t.status}${t.dueDate ? ' · Fällig: ' + t.dueDate : ''}</small>
+          <small>Prio: ${prioLabel} · Status: ${t.status}${t.dueDate ? ' · Fällig: ' + t.dueDate : ''}</small>
         </div>
         <button class="btn btn-sm btn-outline-primary" data-ticket="${t.id}" data-action="open">Öffnen</button>
       </div>
-    </li>
-  `).join('') : `<li class="list-group-item text-muted">Keine Tickets zugewiesen.</li>`;
+    </li>`;
+  }).join('') : `<li class="list-group-item text-muted">Keine Tickets zugewiesen.</li>`;
   return `
     <div class="ot-center mb-2">
       <h5>Meine Tickets</h5>
@@ -166,11 +179,9 @@ function renderMain(user) {
   return `
     ${renderHeader(user)}
     ${renderLoginBox()}
-    <div class="row">
-      <div class="col-md-5">
-        ${renderTicketCreateForm()}
-      </div>
-      <div class="col-md-7">
+    ${renderTicketCreateForm()}
+    <div class="row mt-3">
+      <div class="col-md-10 col-lg-8 mx-auto">
         ${renderMyTickets(user)}
       </div>
     </div>
@@ -199,6 +210,7 @@ function attachHandlers(user) {
     const fromName  = document.getElementById('cName').value.trim();
     const fromEmail = document.getElementById('cEmail').value.trim();
     const toEmail   = document.getElementById('cTo').value;
+    const priority  = document.getElementById('cPriority').value;
     const title     = document.getElementById('cTitle').value.trim();
     const desc      = document.getElementById('cDesc').value.trim();
     if (!fromName || !fromEmail || !toEmail || !title || !desc) return;
@@ -208,6 +220,7 @@ function attachHandlers(user) {
       fromName,
       fromEmail,
       toEmail,
+      priority,
       title,
       description: desc,
       status: 'open',
@@ -247,12 +260,14 @@ function openTicketDetail(id, user) {
     </div>
   `).join('') : '<p class="text-muted">Noch keine Diskussion.</p>';
 
+  const prioLabel = t.priority === 'high' ? 'Hoch' : t.priority === 'medium' ? 'Mittel' : 'Niedrig';
+
   const detail = document.getElementById('ticketDetail');
   detail.innerHTML = `
-    <div class="card p-3">
+    <div class="card p-3 mt-2">
       <h5>${t.title}</h5>
       <p>${t.description}</p>
-      <p><small>Von: ${t.fromName} &lt;${t.fromEmail}&gt;</small></p>
+      <p><small>Von: ${t.fromName} &lt;${t.fromEmail}&gt; · Prio: ${prioLabel}</small></p>
       <div class="row mb-3">
         <div class="col-md-4">
           <label class="form-label">Zugewiesen an</label>
