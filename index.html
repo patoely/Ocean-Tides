@@ -8,6 +8,7 @@
   <style>
     body { background-color:#ffffff; }
     .ot-logo { height:200px; width:auto; }
+    .ot-center { text-align:center; }
   </style>
 </head>
 <body>
@@ -46,18 +47,23 @@ function render() {
 
 function renderHeader(user) {
   return `
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <div class="d-flex align-items-center">
-        <img src="images/logo.png" alt="Ocean Tides Logo" class="ot-logo me-3">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+      <div class="flex-grow-1 ot-center">
+        <img src="images/logo.png" alt="Ocean Tides Logo" class="ot-logo mb-2">
+        <p class="text-muted mb-0">Erstelle Tickets ohne Login – Mitarbeiter bearbeiten sie im geschützten Bereich.</p>
       </div>
-      <div>
+      <div class="ms-3">
         ${user ? `
-          <span class="me-3 small">${user.email}</span>
-          <button class="btn btn-outline-secondary btn-sm" id="logoutBtn">Logout</button>
+          <div class="text-end">
+            <div class="small mb-2">${user.email}</div>
+            <button class="btn btn-outline-secondary btn-sm" id="logoutBtn">Logout</button>
+          </div>
         ` : `
-          <button class="btn btn-outline-primary btn-sm" data-bs-toggle="collapse" data-bs-target="#loginBox">
-            Mitarbeiter-Login
-          </button>
+          <div class="text-end">
+            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="collapse" data-bs-target="#loginBox">
+              Mitarbeiter-Login
+            </button>
+          </div>
         `}
       </div>
     </div>
@@ -92,6 +98,12 @@ function renderLoginBox() {
 function renderTicketCreateForm() {
   const options = USERS.map(u => `<option value="${u.email}">${u.name} (${u.email})</option>`).join('');
   return `
+    <div class="ot-center mb-2">
+      <h5>Ticket erstellen</h5>
+      <p class="text-muted small mb-3">
+        Name und E-Mail angeben, Empfänger auswählen – das Ticket wird direkt angelegt.
+      </p>
+    </div>
     <form id="createForm" class="card p-3 shadow-sm mb-4">
       <div class="mb-2">
         <label class="form-label">Dein Name</label>
@@ -123,7 +135,10 @@ function renderTicketCreateForm() {
 
 function renderMyTickets(user) {
   if (!user) {
-    return `<div id="myTickets"></div><div id="ticketDetail"></div>`;
+    return `
+      <div id="myTickets" class="ot-center text-muted small mb-2"></div>
+      <div id="ticketDetail"></div>
+    `;
   }
   const tickets = getTickets().filter(t => t.toEmail === user.email);
   const items = tickets.length ? tickets.map(t => `
@@ -139,6 +154,9 @@ function renderMyTickets(user) {
     </li>
   `).join('') : `<li class="list-group-item text-muted">Keine Tickets zugewiesen.</li>`;
   return `
+    <div class="ot-center mb-2">
+      <h5>Meine Tickets</h5>
+    </div>
     <ul class="list-group mb-3" id="myTickets">${items}</ul>
     <div id="ticketDetail"></div>
   `;
